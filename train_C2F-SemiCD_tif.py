@@ -297,7 +297,7 @@ if __name__ == '__main__':
         
         train_paired_loader = torch.utils.data.DataLoader(
             train_dataset, batch_size=opt.batchsize, shuffle=True,
-            num_workers=8, pin_memory=False, collate_fn=train_collate_fn
+            num_workers=2, pin_memory=False, collate_fn=train_collate_fn
         )
         
         val_loader = torch.utils.data.DataLoader(
