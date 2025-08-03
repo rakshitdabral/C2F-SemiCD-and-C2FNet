@@ -54,16 +54,33 @@ def train1(train_paired_loader, train_unpaired_loader, val_loader, Eva_train, Ev
             Y = Y.cuda()
             with_label = torch.ones(A.size(0), dtype=torch.bool).cuda()  # All samples have labels
 
+            # Check for NaN or Inf in input tensors
+            if not (torch.isfinite(A).all() and torch.isfinite(B).all() and torch.isfinite(Y).all()):
+                print(f"Warning: NaN or Inf found in input tensors. Skipping batch.")
+                continue
+                
             optimizer.zero_grad()
-            preds = net(A, B)
-            loss = criterion(preds[0], Y) + criterion(preds[1], Y)
+            try:
+                preds = net(A, B)
+                loss = criterion(preds[0], Y) + criterion(preds[1], Y)
+                
+                # Check for NaN or Inf in loss
+                if not torch.isfinite(loss):
+                    print(f"Warning: NaN or Inf found in loss: {loss.item()}. Skipping backward pass.")
+                    continue
+                    
+                loss.backward()
+                optimizer.step()
+            except RuntimeError as e:
+                if "NaN" in str(e) or "Inf" in str(e):
+                    print(f"Runtime error with NaN or Inf: {e}")
+                    continue
+                else:
+                    raise e
 
-            loss.backward()
-            optimizer.step()
-
-            # Update EMA model
+            # Update EMA model with a less aggressive rate
             with torch.no_grad():
-                update_ema_variables(net, ema_net, alpha=0.99)
+                update_ema_variables(net, ema_net, alpha=0.95)  # Changed from 0.99 to 0.95
 
             epoch_loss += loss.item()
 
@@ -85,23 +102,45 @@ def train1(train_paired_loader, train_unpaired_loader, val_loader, Eva_train, Ev
                 A = A.cuda()
                 B = B.cuda()
                 
+                # Check for NaN or Inf in input tensors
+                if not (torch.isfinite(A).all() and torch.isfinite(B).all()):
+                    print(f"Warning: NaN or Inf found in unpaired input tensors. Skipping batch.")
+                    continue
+                    
                 optimizer.zero_grad()
-                preds = net(A, B)
+                try:
+                    preds = net(A, B)
+                    
+                    # Generate pseudo-labels with EMA model
+                    with torch.no_grad():
+                        pseudo_attn, pseudo_preds = ema_net(A, B)
+                        pseudo_attn, pseudo_preds = torch.sigmoid(pseudo_attn).detach(), torch.sigmoid(pseudo_preds).detach()
+                        
+                        # Check for NaN or Inf in pseudo-labels
+                        if not (torch.isfinite(pseudo_attn).all() and torch.isfinite(pseudo_preds).all()):
+                            print(f"Warning: NaN or Inf found in pseudo-labels. Skipping batch.")
+                            continue
+                    
+                    loss_semi = semicriterion(preds[0], pseudo_attn) + semicriterion(preds[1], pseudo_preds)
+                    loss = 0.5 * loss_semi  # Increased semi-supervised coefficient from 0.2 to 0.5
+                    
+                    # Check for NaN or Inf in loss
+                    if not torch.isfinite(loss):
+                        print(f"Warning: NaN or Inf found in unpaired loss: {loss.item()}. Skipping backward pass.")
+                        continue
+                        
+                    loss.backward()
+                    optimizer.step()
+                except RuntimeError as e:
+                    if "NaN" in str(e) or "Inf" in str(e):
+                        print(f"Runtime error with NaN or Inf in unpaired data: {e}")
+                        continue
+                    else:
+                        raise e
                 
-                # Generate pseudo-labels with EMA model
+                # Update EMA model with a less aggressive rate
                 with torch.no_grad():
-                    pseudo_attn, pseudo_preds = ema_net(A, B)
-                    pseudo_attn, pseudo_preds = torch.sigmoid(pseudo_attn).detach(), torch.sigmoid(pseudo_preds).detach()
-                
-                loss_semi = semicriterion(preds[0], pseudo_attn) + semicriterion(preds[1], pseudo_preds)
-                loss = 0.2 * loss_semi  # Semi-supervised coefficient 0.2
-                
-                loss.backward()
-                optimizer.step()
-                
-                # Update EMA model
-                with torch.no_grad():
-                    update_ema_variables(net, ema_net, alpha=0.99)
+                    update_ema_variables(net, ema_net, alpha=0.95)  # Changed from 0.99 to 0.95
                 
                 epoch_loss += loss.item()
                 pbar.set_postfix(**{'LAll': loss.item(), 'LSemi': loss_semi.item()})
@@ -248,14 +287,22 @@ if __name__ == '__main__':
         val_size = len(full_dataset) - train_size
         train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
         
+        # Import the safe collate functions and partial
+        from utils.data_loader_tif import safe_collate_paired
+        from functools import partial
+        
+        # Create collate functions with bound parameters
+        train_collate_fn = partial(safe_collate_paired, batchsize=opt.batchsize, trainsize=opt.trainsize)
+        val_collate_fn = partial(safe_collate_paired, batchsize=opt.batchsize, trainsize=opt.trainsize)
+        
         train_paired_loader = torch.utils.data.DataLoader(
             train_dataset, batch_size=opt.batchsize, shuffle=True,
-            num_workers=8, pin_memory=False
+            num_workers=8, pin_memory=False, collate_fn=train_collate_fn
         )
         
         val_loader = torch.utils.data.DataLoader(
             val_dataset, batch_size=opt.batchsize, shuffle=False,
-            num_workers=6, pin_memory=False
+            num_workers=6, pin_memory=False, collate_fn=val_collate_fn
         )
 
     # Initialize evaluators
@@ -271,9 +318,11 @@ if __name__ == '__main__':
     for param in ema_model.parameters():
         param.detach_()
 
-    # Initialize loss functions and optimizer
-    criterion = nn.BCEWithLogitsLoss().cuda()
-    semicriterion = nn.BCEWithLogitsLoss().cuda()
+    # Initialize loss functions with class weights to handle imbalance
+    # Using pos_weight > 1 gives more importance to positive examples (changes)
+    pos_weight = torch.tensor([10.0])  # Adjust based on your dataset's class imbalance
+    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight).cuda()
+    semicriterion = nn.BCEWithLogitsLoss().cuda()  # Keep standard loss for semi-supervised part
     optimizer = torch.optim.AdamW(model.parameters(), lr=opt.lr, weight_decay=0.0025)
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=15, T_mult=2)
 

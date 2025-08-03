@@ -306,6 +306,14 @@
         "documentation": {}
     },
     {
+        "label": "partial",
+        "importPath": "functools",
+        "description": "functools",
+        "isExtraImport": true,
+        "detail": "functools",
+        "documentation": {}
+    },
+    {
         "label": "logging",
         "kind": 6,
         "isExtraImport": true,
@@ -1062,7 +1070,7 @@
         "kind": 6,
         "importPath": "utils.data_loader_tif",
         "description": "utils.data_loader_tif",
-        "peekOfCode": "class PairedChangeDataset(data.Dataset):\n    def __init__(self, csv_path, trainsize, mosaic_ratio=0.75):\n        df = pd.read_csv(csv_path)\n        # Check column names and adapt to what's available in the CSV\n        if 'past_image_path' in df.columns and 'present_image_path' in df.columns:\n            self.past_paths = df['past_image_path'].tolist()\n            self.present_paths = df['present_image_path'].tolist()\n            if 'mask_path' in df.columns:\n                self.mask_paths = df['mask_path'].tolist()\n            else:",
+        "peekOfCode": "class PairedChangeDataset(data.Dataset):\n    def __init__(self, csv_path, trainsize, mosaic_ratio=0.75):\n        df = pd.read_csv(csv_path)\n        if 'past_image_path' in df.columns:\n            self.past_paths    = df['past_image_path'].tolist()\n            self.present_paths = df['present_image_path'].tolist()\n            self.mask_paths    = df['mask_path'].tolist()\n        else:\n            self.past_paths    = df['past'].tolist()\n            self.present_paths = df['present'].tolist()",
         "detail": "utils.data_loader_tif",
         "documentation": {}
     },
@@ -1071,7 +1079,16 @@
         "kind": 6,
         "importPath": "utils.data_loader_tif",
         "description": "utils.data_loader_tif",
-        "peekOfCode": "class UnpairedChangeDataset(data.Dataset):\n    def __init__(self, csv_path, trainsize):\n        df = pd.read_csv(csv_path)\n        # Check column names and adapt to what's available in the CSV\n        if 'past_image_path' in df.columns and 'present_image_path' in df.columns:\n            self.past_paths = df['past_image_path'].tolist()\n            self.present_paths = df['present_image_path'].tolist()\n        else:\n            # Fallback to original column names\n            self.past_paths = df['past'].tolist()",
+        "peekOfCode": "class UnpairedChangeDataset(data.Dataset):\n    def __init__(self, csv_path, trainsize):\n        df = pd.read_csv(csv_path)\n        if 'past_image_path' in df.columns:\n            self.past_paths    = df['past_image_path'].tolist()\n            self.present_paths = df['present_image_path'].tolist()\n        else:\n            self.past_paths    = df['past'].tolist()\n            self.present_paths = df['present'].tolist()\n        self.trainsize = trainsize",
+        "detail": "utils.data_loader_tif",
+        "documentation": {}
+    },
+    {
+        "label": "TestPairedChangeDataset",
+        "kind": 6,
+        "importPath": "utils.data_loader_tif",
+        "description": "utils.data_loader_tif",
+        "peekOfCode": "class TestPairedChangeDataset(data.Dataset):\n    def __init__(self, csv_path, trainsize):\n        df = pd.read_csv(csv_path)\n        if 'past_image_path' in df.columns:\n            self.past_paths    = df['past_image_path'].tolist()\n            self.present_paths = df['present_image_path'].tolist()\n            self.mask_paths    = df['mask_path'].tolist()\n        else:\n            self.past_paths    = df['past'].tolist()\n            self.present_paths = df['present'].tolist()",
         "detail": "utils.data_loader_tif",
         "documentation": {}
     },
@@ -1089,7 +1106,16 @@
         "kind": 2,
         "importPath": "utils.data_loader_tif",
         "description": "utils.data_loader_tif",
-        "peekOfCode": "def randomCrop(image_A, image_B, label, border=30):\n    w, h = image_A.size\n    cw = np.random.randint(w - border, w)\n    ch = np.random.randint(h - border, h)\n    region = ((w - cw)//2, (h - ch)//2, (w + cw)//2, (h + ch)//2)\n    return image_A.crop(region), image_B.crop(region), label.crop(region)\ndef randomRotation(image_A, image_B, label, angle_range=15):\n    if random.random() > 0.8:\n        ang = random.randint(-angle_range, angle_range)\n        image_A = image_A.rotate(ang, Image.BICUBIC)",
+        "peekOfCode": "def randomCrop(image_A, image_B, label, border=30):\n    w, h = image_A.size\n    cw = np.random.randint(w - border, w)\n    ch = np.random.randint(h - border, h)\n    region = ((w - cw)//2, (h - ch)//2, (w + cw)//2, (h + ch)//2)\n    return image_A.crop(region), image_B.crop(region), label.crop(region)\ndef randomCrop_Mosaic(image_A, image_B, label, crop_w, crop_h):\n    w, h = image_A.size\n    x1 = (w - crop_w) // 2\n    y1 = (h - crop_h) // 2",
+        "detail": "utils.data_loader_tif",
+        "documentation": {}
+    },
+    {
+        "label": "randomCrop_Mosaic",
+        "kind": 2,
+        "importPath": "utils.data_loader_tif",
+        "description": "utils.data_loader_tif",
+        "peekOfCode": "def randomCrop_Mosaic(image_A, image_B, label, crop_w, crop_h):\n    w, h = image_A.size\n    x1 = (w - crop_w) // 2\n    y1 = (h - crop_h) // 2\n    x2 = x1 + crop_w\n    y2 = y1 + crop_h\n    return image_A.crop((x1, y1, x2, y2)), \\\n           image_B.crop((x1, y1, x2, y2)), \\\n           label.crop((x1, y1, x2, y2))\ndef randomRotation(image_A, image_B, label, angle_range=15):",
         "detail": "utils.data_loader_tif",
         "documentation": {}
     },
@@ -1116,7 +1142,7 @@
         "kind": 2,
         "importPath": "utils.data_loader_tif",
         "description": "utils.data_loader_tif",
-        "peekOfCode": "def randomPeper(img):\n    arr = np.array(img)\n    n = int(0.0015 * arr.size)\n    for _ in range(n):\n        x = random.randrange(arr.shape[0])\n        y = random.randrange(arr.shape[1])\n        arr[x, y] = 0 if random.random()<0.5 else 255\n    return Image.fromarray(arr)\n# ─── helper to load a .tif into a PIL image ────────────────────────────────\ndef load_tif_rgb(path, bands=[4,3,2]):",
+        "peekOfCode": "def randomPeper(img):\n    arr = np.array(img)\n    n = int(0.0015 * arr.size)\n    for _ in range(n):\n        x = random.randrange(arr.shape[0])\n        y = random.randrange(arr.shape[1])\n        arr[x, y] = 0 if random.random() < 0.5 else 255\n    return Image.fromarray(arr)\n# ─── TIFF Loading Helpers ─────────────────────────────────────────────────\ndef load_tif_rgb(path, bands=[4,3,2]):",
         "detail": "utils.data_loader_tif",
         "documentation": {}
     },
@@ -1125,7 +1151,7 @@
         "kind": 2,
         "importPath": "utils.data_loader_tif",
         "description": "utils.data_loader_tif",
-        "peekOfCode": "def load_tif_rgb(path, bands=[4,3,2]):\n    \"\"\"Read bands [4,3,2] from a GeoTIFF, replace NaNs, return as PIL RGB.\"\"\"\n    with rasterio.open(path) as src:\n        arr = src.read(bands).astype(np.float32)\n        arr = np.nan_to_num(arr, nan=0.0)\n    # transpose to HWC and clip/scale if you wish; here we normalize to [0,1]\n    arr = np.clip(arr, 0, None)\n    arr = arr / (arr.max() or 1)\n    arr = np.transpose(arr, (1, 2, 0))\n    # convert to 0–255 uint8 for PIL",
+        "peekOfCode": "def load_tif_rgb(path, bands=[4,3,2]):\n    try:\n        with rasterio.open(path) as src:\n            arr = src.read(bands).astype(np.float32)\n            arr = np.nan_to_num(arr, nan=0.0, posinf=1.0, neginf=0.0)\n        arr = np.clip(arr, 0, None)\n        mx = arr.max()\n        if mx > 0: arr = arr / mx\n        arr = np.transpose(arr, (1, 2, 0))\n        img8 = (arr * 255).round().astype(np.uint8)",
         "detail": "utils.data_loader_tif",
         "documentation": {}
     },
@@ -1134,7 +1160,25 @@
         "kind": 2,
         "importPath": "utils.data_loader_tif",
         "description": "utils.data_loader_tif",
-        "peekOfCode": "def load_tif_gray(path):\n    \"\"\"Read first band of a mask-tif, replace NaNs, return as PIL L.\"\"\"\n    with rasterio.open(path) as src:\n        arr = src.read(1).astype(np.float32)\n        arr = np.nan_to_num(arr, nan=0.0)\n    # assume mask is binary or 0–1; scale up\n    arr = np.clip(arr, 0, 1)\n    img8 = (arr * 255).round().astype(np.uint8)\n    return Image.fromarray(img8, mode='L')\n# ─── Paired (labelled) dataset ─────────────────────────────────────────────",
+        "peekOfCode": "def load_tif_gray(path):\n    try:\n        with rasterio.open(path) as src:\n            arr = src.read(1).astype(np.float32)\n            arr = np.nan_to_num(arr, nan=0.0, posinf=1.0, neginf=0.0)\n        arr = np.clip(arr, 0, 1)\n        img8 = (arr * 255).round().astype(np.uint8)\n        return Image.fromarray(img8, mode='L')\n    except Exception as e:\n        print(f\"Error loading Gray TIFF {path}: {e}\")",
+        "detail": "utils.data_loader_tif",
+        "documentation": {}
+    },
+    {
+        "label": "safe_collate_paired",
+        "kind": 2,
+        "importPath": "utils.data_loader_tif",
+        "description": "utils.data_loader_tif",
+        "peekOfCode": "def safe_collate_paired(batch, batchsize=None, trainsize=None):\n    A, B, M = data.dataloader.default_collate(batch)\n    A = A.contiguous(memory_format=torch.channels_last)\n    B = B.contiguous(memory_format=torch.channels_last)\n    return A, B, M\ndef safe_collate_unpaired(batch, batchsize=None, trainsize=None):\n    A, B = data.dataloader.default_collate(batch)\n    A = A.contiguous(memory_format=torch.channels_last)\n    B = B.contiguous(memory_format=torch.channels_last)\n    return A, B",
+        "detail": "utils.data_loader_tif",
+        "documentation": {}
+    },
+    {
+        "label": "safe_collate_unpaired",
+        "kind": 2,
+        "importPath": "utils.data_loader_tif",
+        "description": "utils.data_loader_tif",
+        "peekOfCode": "def safe_collate_unpaired(batch, batchsize=None, trainsize=None):\n    A, B = data.dataloader.default_collate(batch)\n    A = A.contiguous(memory_format=torch.channels_last)\n    B = B.contiguous(memory_format=torch.channels_last)\n    return A, B\n# ─── DataLoader Factories ────────────────────────────────────────────────\ndef get_paired_loader(csv_path,\n                      batchsize=4,\n                      trainsize=256,\n                      mosaic_ratio=0.75,",
         "detail": "utils.data_loader_tif",
         "documentation": {}
     },
@@ -1143,7 +1187,7 @@
         "kind": 2,
         "importPath": "utils.data_loader_tif",
         "description": "utils.data_loader_tif",
-        "peekOfCode": "def get_paired_loader(csv_path, batchsize, trainsize,\n                      mosaic_ratio=0.75,\n                      num_workers=4, shuffle=True, pin_memory=True):\n    ds = PairedChangeDataset(csv_path, trainsize, mosaic_ratio)\n    return data.DataLoader(ds, batch_size=batchsize, shuffle=shuffle,\n                           num_workers=num_workers, pin_memory=pin_memory)\ndef get_unpaired_loader(csv_path, batchsize, trainsize,\n                        num_workers=4, shuffle=True, pin_memory=True):\n    ds = UnpairedChangeDataset(csv_path, trainsize)\n    return data.DataLoader(ds, batch_size=batchsize, shuffle=shuffle,",
+        "peekOfCode": "def get_paired_loader(csv_path,\n                      batchsize=4,\n                      trainsize=256,\n                      mosaic_ratio=0.75,\n                      num_workers=2,\n                      shuffle=True,\n                      pin_memory=True):\n    ds = PairedChangeDataset(csv_path, trainsize, mosaic_ratio)\n    collate_fn = partial(safe_collate_paired,\n                         batchsize=batchsize,",
         "detail": "utils.data_loader_tif",
         "documentation": {}
     },
@@ -1152,7 +1196,16 @@
         "kind": 2,
         "importPath": "utils.data_loader_tif",
         "description": "utils.data_loader_tif",
-        "peekOfCode": "def get_unpaired_loader(csv_path, batchsize, trainsize,\n                        num_workers=4, shuffle=True, pin_memory=True):\n    ds = UnpairedChangeDataset(csv_path, trainsize)\n    return data.DataLoader(ds, batch_size=batchsize, shuffle=shuffle,\n                           num_workers=num_workers, pin_memory=pin_memory)",
+        "peekOfCode": "def get_unpaired_loader(csv_path,\n                        batchsize=4,\n                        trainsize=256,\n                        num_workers=2,\n                        shuffle=True,\n                        pin_memory=True):\n    ds = UnpairedChangeDataset(csv_path, trainsize)\n    collate_fn = partial(safe_collate_unpaired,\n                         batchsize=batchsize,\n                         trainsize=trainsize)",
+        "detail": "utils.data_loader_tif",
+        "documentation": {}
+    },
+    {
+        "label": "get_test_loader",
+        "kind": 2,
+        "importPath": "utils.data_loader_tif",
+        "description": "utils.data_loader_tif",
+        "peekOfCode": "def get_test_loader(csv_path,\n                    batchsize=4,\n                    trainsize=256,\n                    num_workers=2,\n                    shuffle=False,\n                    pin_memory=True):\n    ds = TestPairedChangeDataset(csv_path, trainsize)\n    return data.DataLoader(ds,\n                           batch_size=batchsize,\n                           shuffle=shuffle,",
         "detail": "utils.data_loader_tif",
         "documentation": {}
     },
