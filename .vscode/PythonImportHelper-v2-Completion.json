@@ -131,6 +131,14 @@
         "documentation": {}
     },
     {
+        "label": "SemiModel",
+        "importPath": "network.SemiModel",
+        "description": "network.SemiModel",
+        "isExtraImport": true,
+        "detail": "network.SemiModel",
+        "documentation": {}
+    },
+    {
         "label": "SemiModel_visualization",
         "importPath": "network.SemiModel",
         "description": "network.SemiModel",
@@ -213,6 +221,14 @@
     },
     {
         "label": "ImageEnhance",
+        "importPath": "PIL",
+        "description": "PIL",
+        "isExtraImport": true,
+        "detail": "PIL",
+        "documentation": {}
+    },
+    {
+        "label": "Image",
         "importPath": "PIL",
         "description": "PIL",
         "isExtraImport": true,
@@ -414,6 +430,14 @@
         "documentation": {}
     },
     {
+        "label": "data_loader_tif",
+        "importPath": "utils",
+        "description": "utils",
+        "isExtraImport": true,
+        "detail": "utils",
+        "documentation": {}
+    },
+    {
         "label": "data_loader",
         "importPath": "utils",
         "description": "utils",
@@ -467,6 +491,14 @@
         "description": "utils",
         "isExtraImport": true,
         "detail": "utils",
+        "documentation": {}
+    },
+    {
+        "label": "tqdm",
+        "importPath": "tqdm",
+        "description": "tqdm",
+        "isExtraImport": true,
+        "detail": "tqdm",
         "documentation": {}
     },
     {
@@ -748,6 +780,15 @@
         "importPath": "time",
         "description": "time",
         "detail": "time",
+        "documentation": {}
+    },
+    {
+        "label": "argparse",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "argparse",
+        "description": "argparse",
+        "detail": "argparse",
         "documentation": {}
     },
     {
@@ -1333,6 +1374,15 @@
         "description": "test_C2F-SemiCD",
         "peekOfCode": "#os.environ['CUDA_VISIBLE_DEVICES'] = '0'\nimport torch\nimport torch.nn.functional as F\nimport numpy as np\nfrom utils import data_loader\nfrom tqdm import tqdm\nfrom utils.metrics import Evaluator\nfrom PIL import Image\nfrom network.SemiModel import SemiModel\nimport time",
         "detail": "test_C2F-SemiCD",
+        "documentation": {}
+    },
+    {
+        "label": "test_unpaired",
+        "kind": 2,
+        "importPath": "test_C2F-semiCD_tif",
+        "description": "test_C2F-semiCD_tif",
+        "peekOfCode": "def test_unpaired(loader, save_path, model, batch_size):\n    os.makedirs(save_path, exist_ok=True)\n    model.eval()\n    dataset = loader.dataset\n    with torch.no_grad():\n        for batch_idx, (A, B) in enumerate(tqdm(loader, desc=\"Testing Unpaired\")):\n            A = A.cuda()\n            B = B.cuda()\n            _, logits = model(A, B)\n            probs = torch.sigmoid(logits)",
+        "detail": "test_C2F-semiCD_tif",
         "documentation": {}
     },
     {
