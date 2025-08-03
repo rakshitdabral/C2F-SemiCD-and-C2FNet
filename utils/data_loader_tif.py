@@ -78,11 +78,22 @@ def load_tif_gray(path):
 class PairedChangeDataset(data.Dataset):
     def __init__(self, csv_path, trainsize, mosaic_ratio=0.75):
         df = pd.read_csv(csv_path)
-        self.past_paths    = df['past'   ].tolist()
-        self.present_paths = df['present'].tolist()
-        self.mask_paths    = df['mask'   ].tolist()
-        self.trainsize     = trainsize
-        self.mosaic_ratio  = mosaic_ratio
+        # Check column names and adapt to what's available in the CSV
+        if 'past_image_path' in df.columns and 'present_image_path' in df.columns:
+            self.past_paths = df['past_image_path'].tolist()
+            self.present_paths = df['present_image_path'].tolist()
+            if 'mask_path' in df.columns:
+                self.mask_paths = df['mask_path'].tolist()
+            else:
+                self.mask_paths = df['mask'].tolist() if 'mask' in df.columns else []
+        else:
+            # Fallback to original column names
+            self.past_paths = df['past'].tolist()
+            self.present_paths = df['present'].tolist()
+            self.mask_paths = df['mask'].tolist()
+            
+        self.trainsize = trainsize
+        self.mosaic_ratio = mosaic_ratio
 
         self.img_transform = transforms.Compose([
             transforms.Resize((trainsize, trainsize)),
@@ -126,9 +137,16 @@ class PairedChangeDataset(data.Dataset):
 class UnpairedChangeDataset(data.Dataset):
     def __init__(self, csv_path, trainsize):
         df = pd.read_csv(csv_path)
-        self.past_paths    = df['past'   ].tolist()
-        self.present_paths = df['present'].tolist()
-        self.trainsize     = trainsize
+        # Check column names and adapt to what's available in the CSV
+        if 'past_image_path' in df.columns and 'present_image_path' in df.columns:
+            self.past_paths = df['past_image_path'].tolist()
+            self.present_paths = df['present_image_path'].tolist()
+        else:
+            # Fallback to original column names
+            self.past_paths = df['past'].tolist()
+            self.present_paths = df['present'].tolist()
+            
+        self.trainsize = trainsize
 
         self.img_transform = transforms.Compose([
             transforms.Resize((trainsize, trainsize)),

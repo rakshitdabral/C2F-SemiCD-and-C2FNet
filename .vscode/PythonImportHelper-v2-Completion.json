@@ -171,6 +171,14 @@
         "documentation": {}
     },
     {
+        "label": "SemiModel",
+        "importPath": "network.SemiModel",
+        "description": "network.SemiModel",
+        "isExtraImport": true,
+        "detail": "network.SemiModel",
+        "documentation": {}
+    },
+    {
         "label": "os",
         "kind": 6,
         "isExtraImport": true,
@@ -374,11 +382,11 @@
         "documentation": {}
     },
     {
-        "label": "data_loader",
-        "importPath": "utils",
-        "description": "utils",
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
         "isExtraImport": true,
-        "detail": "utils",
+        "detail": "pathlib",
         "documentation": {}
     },
     {
@@ -423,6 +431,22 @@
     },
     {
         "label": "data_loader",
+        "importPath": "utils",
+        "description": "utils",
+        "isExtraImport": true,
+        "detail": "utils",
+        "documentation": {}
+    },
+    {
+        "label": "data_loader",
+        "importPath": "utils",
+        "description": "utils",
+        "isExtraImport": true,
+        "detail": "utils",
+        "documentation": {}
+    },
+    {
+        "label": "data_loader_tif",
         "importPath": "utils",
         "description": "utils",
         "isExtraImport": true,
@@ -499,6 +523,22 @@
         "description": "tqdm",
         "isExtraImport": true,
         "detail": "tqdm",
+        "documentation": {}
+    },
+    {
+        "label": "tqdm",
+        "importPath": "tqdm",
+        "description": "tqdm",
+        "isExtraImport": true,
+        "detail": "tqdm",
+        "documentation": {}
+    },
+    {
+        "label": "Evaluator",
+        "importPath": "utils.metrics",
+        "description": "utils.metrics",
+        "isExtraImport": true,
+        "detail": "utils.metrics",
         "documentation": {}
     },
     {
@@ -1022,7 +1062,7 @@
         "kind": 6,
         "importPath": "utils.data_loader_tif",
         "description": "utils.data_loader_tif",
-        "peekOfCode": "class PairedChangeDataset(data.Dataset):\n    def __init__(self, csv_path, trainsize, mosaic_ratio=0.75):\n        df = pd.read_csv(csv_path)\n        self.past_paths    = df['past'   ].tolist()\n        self.present_paths = df['present'].tolist()\n        self.mask_paths    = df['mask'   ].tolist()\n        self.trainsize     = trainsize\n        self.mosaic_ratio  = mosaic_ratio\n        self.img_transform = transforms.Compose([\n            transforms.Resize((trainsize, trainsize)),",
+        "peekOfCode": "class PairedChangeDataset(data.Dataset):\n    def __init__(self, csv_path, trainsize, mosaic_ratio=0.75):\n        df = pd.read_csv(csv_path)\n        # Check column names and adapt to what's available in the CSV\n        if 'past_image_path' in df.columns and 'present_image_path' in df.columns:\n            self.past_paths = df['past_image_path'].tolist()\n            self.present_paths = df['present_image_path'].tolist()\n            if 'mask_path' in df.columns:\n                self.mask_paths = df['mask_path'].tolist()\n            else:",
         "detail": "utils.data_loader_tif",
         "documentation": {}
     },
@@ -1031,7 +1071,7 @@
         "kind": 6,
         "importPath": "utils.data_loader_tif",
         "description": "utils.data_loader_tif",
-        "peekOfCode": "class UnpairedChangeDataset(data.Dataset):\n    def __init__(self, csv_path, trainsize):\n        df = pd.read_csv(csv_path)\n        self.past_paths    = df['past'   ].tolist()\n        self.present_paths = df['present'].tolist()\n        self.trainsize     = trainsize\n        self.img_transform = transforms.Compose([\n            transforms.Resize((trainsize, trainsize)),\n            transforms.ToTensor(),\n            transforms.Normalize([0.5]*3, [0.5]*3)",
+        "peekOfCode": "class UnpairedChangeDataset(data.Dataset):\n    def __init__(self, csv_path, trainsize):\n        df = pd.read_csv(csv_path)\n        # Check column names and adapt to what's available in the CSV\n        if 'past_image_path' in df.columns and 'present_image_path' in df.columns:\n            self.past_paths = df['past_image_path'].tolist()\n            self.present_paths = df['present_image_path'].tolist()\n        else:\n            # Fallback to original column names\n            self.past_paths = df['past'].tolist()",
         "detail": "utils.data_loader_tif",
         "documentation": {}
     },
@@ -1195,6 +1235,15 @@
         "description": "create_unlabelled_dataset",
         "peekOfCode": "def main():\n    root = Path(__file__).parent / \"dataset_delhi\"\n    paired_csv = root / \"paired_dataset.csv\"\n    out_csv    = root / \"unpaired_pairs.csv\"\n    # 1) Read mask-paired CSV and collect used IDs per year\n    #    We infer each row: mask covers (Y1,Y2) and past_image_path ends in _XX_YY.tif\n    used_ids = {(\"2018\",\"2020\"): set(), (\"2019\",\"2023\"): set()}\n    with paired_csv.open() as f:\n        reader = csv.DictReader(f)\n        for row in reader:",
         "detail": "create_unlabelled_dataset",
+        "documentation": {}
+    },
+    {
+        "label": "main",
+        "kind": 2,
+        "importPath": "create_validation_dataset",
+        "description": "create_validation_dataset",
+        "peekOfCode": "def main():\n    # Root folder containing your subfolders\n    root_dir = Path(__file__).parent / \"dataset_delhi\"\n    # Input paired dataset CSV\n    paired_csv = root_dir / \"paired_dataset.csv\"\n    # Output validation dataset CSV\n    val_csv = root_dir / \"val_dataset.csv\"\n    # Validation split ratio (e.g., 20% of paired data for validation)\n    val_ratio = 0.2\n    # Read all paired data",
+        "detail": "create_validation_dataset",
         "documentation": {}
     },
     {
@@ -1393,6 +1442,33 @@
         "description": "train_C2F-SemiCD_Ablation",
         "peekOfCode": "end = time.time()\nprint('程序训练train的时间为:', end - start)",
         "detail": "train_C2F-SemiCD_Ablation",
+        "documentation": {}
+    },
+    {
+        "label": "seed_everything",
+        "kind": 2,
+        "importPath": "train_C2F-SemiCD_tif",
+        "description": "train_C2F-SemiCD_tif",
+        "peekOfCode": "def seed_everything(seed):\n    random.seed(seed)\n    os.environ['PYTHONHASHSEED'] = str(seed)\n    np.random.seed(seed)\n    torch.manual_seed(seed)\n    torch.cuda.manual_seed(seed)\n    torch.backends.cudnn.deterministic = True\n    torch.backends.cudnn.benchmark = True\ndef update_ema_variables(model, ema_model, alpha):\n    model_state = model.state_dict()",
+        "detail": "train_C2F-SemiCD_tif",
+        "documentation": {}
+    },
+    {
+        "label": "update_ema_variables",
+        "kind": 2,
+        "importPath": "train_C2F-SemiCD_tif",
+        "description": "train_C2F-SemiCD_tif",
+        "peekOfCode": "def update_ema_variables(model, ema_model, alpha):\n    model_state = model.state_dict()\n    model_ema_state = ema_model.state_dict()\n    new_dict = {}\n    for key in model_state:\n        new_dict[key] = alpha * model_ema_state[key] + (1 - alpha) * model_state[key]\n    ema_model.load_state_dict(new_dict)\ndef train1(train_paired_loader, train_unpaired_loader, val_loader, Eva_train, Eva_train2, Eva_val, Eva_val2,\n           data_name, save_path, net, ema_net, criterion, semicriterion, optimizer, use_ema, num_epoches, epoch):\n    vis = visual.Visualization()",
+        "detail": "train_C2F-SemiCD_tif",
+        "documentation": {}
+    },
+    {
+        "label": "train1",
+        "kind": 2,
+        "importPath": "train_C2F-SemiCD_tif",
+        "description": "train_C2F-SemiCD_tif",
+        "peekOfCode": "def train1(train_paired_loader, train_unpaired_loader, val_loader, Eva_train, Eva_train2, Eva_val, Eva_val2,\n           data_name, save_path, net, ema_net, criterion, semicriterion, optimizer, use_ema, num_epoches, epoch):\n    vis = visual.Visualization()\n    vis.create_summary(data_name)\n    global best_iou\n    epoch_loss = 0\n    net.train(True)\n    ema_net.train(True)\n    length = 0\n    st = time.time()",
+        "detail": "train_C2F-SemiCD_tif",
         "documentation": {}
     },
     {
