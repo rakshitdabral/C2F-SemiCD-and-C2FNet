@@ -286,8 +286,19 @@ def get_paired_loader(csv_path,
                       mosaic_ratio=0.75,
                       num_workers=2,
                       shuffle=True,
-                      pin_memory=True):
+                      pin_memory=True,
+                      train_ratio=1.0):
     ds = PairedChangeDataset(csv_path, trainsize, mosaic_ratio)
+    
+    # Apply train_ratio to use only a subset of the data
+    if train_ratio < 1.0:
+        total_samples = len(ds)
+        subset_size = int(total_samples * train_ratio)
+        # Use random indices to select subset
+        indices = torch.randperm(total_samples)[:subset_size]
+        ds = torch.utils.data.Subset(ds, indices)
+        print(f"Using {len(ds)} out of {total_samples} samples ({train_ratio*100:.1f}%)")
+    
     collate_fn = partial(safe_collate_paired,
                          batchsize=batchsize,
                          trainsize=trainsize)

@@ -224,7 +224,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=5e-4, help='learning rate')
     parser.add_argument('--batchsize', type=int, default=4, help='training batch size')
     parser.add_argument('--trainsize', type=int, default=128, help='training dataset size')
-    parser.add_argument('--train_ratio', type=float, default=0.05, help='Proportion of the labeled images')
+    parser.add_argument('--train_ratio', type=float, default=0.8, help='Proportion of the labeled images')
     parser.add_argument('--clip', type=float, default=0.5, help='gradient clipping margin')
     parser.add_argument('--decay_rate', type=float, default=0.1, help='decay rate of learning rate')
     parser.add_argument('--decay_epoch', type=int, default=50, help='every n epochs decay learning rate')
@@ -257,7 +257,7 @@ if __name__ == '__main__':
     # Load datasets using TIF loaders
     train_paired_loader = data_loader_tif.get_paired_loader(
         opt.paired_csv, opt.batchsize, opt.trainsize, 
-        num_workers=2, shuffle=True, pin_memory=False
+        num_workers=2, shuffle=True, pin_memory=False, train_ratio=opt.train_ratio
     )
     
     # Load unpaired (unlabeled) data if available
@@ -273,7 +273,7 @@ if __name__ == '__main__':
     if os.path.exists(opt.val_csv):
         val_loader = data_loader_tif.get_paired_loader(
             opt.val_csv, opt.batchsize, opt.trainsize,
-            num_workers=2, shuffle=False, pin_memory=False
+            num_workers=2, shuffle=False, pin_memory=False, train_ratio=1.0  # Use all validation data
         )
     else:
         # If no validation CSV is provided, use a portion of the paired data for validation
