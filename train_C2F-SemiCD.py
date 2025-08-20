@@ -204,8 +204,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epoch', type=int, default=100, help='epoch number') #修改这里！！！
     parser.add_argument('--lr', type=float, default=5e-4, help='learning rate')
-    parser.add_argument('--batchsize', type=int, default=2, help='training batch size') #修改这里！！！
-    parser.add_argument('--trainsize', type=int, default=64, help='training dataset size')
+    parser.add_argument('--batchsize', type=int, default=16, help='training batch size') #修改这里！！！
+    parser.add_argument('--trainsize', type=int, default=256, help='training dataset size')
     parser.add_argument('--train_ratio', type=float, default=0.05, help='Proportion of the labeled images')#修改这里！！！
     parser.add_argument('--clip', type=float, default=0.5, help='gradient clipping margin')
     parser.add_argument('--decay_rate', type=float, default=0.1, help='decay rate of learning rate')
