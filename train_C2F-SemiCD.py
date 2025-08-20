@@ -204,8 +204,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epoch', type=int, default=100, help='epoch number') #修改这里！！！
     parser.add_argument('--lr', type=float, default=5e-4, help='learning rate')
-    parser.add_argument('--batchsize', type=int, default=16, help='training batch size') #修改这里！！！
-    parser.add_argument('--trainsize', type=int, default=256, help='training dataset size')
+    parser.add_argument('--batchsize', type=int, default=2, help='training batch size') #修改这里！！！
+    parser.add_argument('--trainsize', type=int, default=64, help='training dataset size')
     parser.add_argument('--train_ratio', type=float, default=0.05, help='Proportion of the labeled images')#修改这里！！！
     parser.add_argument('--clip', type=float, default=0.5, help='gradient clipping margin')
     parser.add_argument('--decay_rate', type=float, default=0.1, help='decay rate of learning rate')
@@ -240,10 +240,9 @@ if __name__ == '__main__':
         opt.train_root = '/data/chengxi.han/data/LEVIR CD Dataset256/train/'
         opt.val_root = '/data/chengxi.han/data/LEVIR CD Dataset256/val/'
     elif opt.data_name == 'WHU':
-        opt.train_root = '/data/chengxi.han/data/Building change detection dataset256/train/'
-        opt.val_root = '/data/chengxi.han/data/Building change detection dataset256/val/'
-        # opt.train_root = '/data/chengxi.han/data/WHU-CD-256-Semi/train/'
-        # opt.val_root = '/data/chengxi.han/data/WHU-CD-256-Semi/val/'
+        # Change these paths to use your local dataset
+        opt.train_root = './labelled/train/'
+        opt.val_root = './labelled/val/'
     elif opt.data_name == 'CDD':
         opt.train_root = '/data/chengxi.han/data/CDD_ChangeDetectionDataset/Real/subset/train/'
         opt.val_root = '/data/chengxi.han/data/CDD_ChangeDetectionDataset/Real/subset/val/'
@@ -262,6 +261,9 @@ if __name__ == '__main__':
     elif opt.data_name == 'LEVIRsup-WHUunsup':
         opt.train_root = '/data/chengxi.han/data/WHU-LEVIR-CD-256-Semi/train/'
         opt.val_root = '/data/chengxi.han/data/WHU-LEVIR-CD-256-Semi/val/'
+    elif opt.data_name == 'LABELLED':
+        opt.train_root = './labelled/train/'
+        opt.val_root = './labelled/val/'
 
     train_loader = data_loader.get_semiloader(opt.train_root, opt.batchsize, opt.trainsize,opt.train_ratio, num_workers=8, shuffle=True, pin_memory=False)
     val_loader = data_loader.get_test_loader(opt.val_root, opt.batchsize, opt.trainsize, num_workers=6, shuffle=False, pin_memory=False)
