@@ -5,6 +5,8 @@ import torchvision.transforms as transforms
 import numpy as np
 import random
 from PIL import ImageEnhance
+import rasterio
+from rasterio.windows import Window
 
 
 def cv_random_flip(img_A, img_B, label):
@@ -96,6 +98,45 @@ def randomPeper(img):
     return Image.fromarray(img)
 
 
+def load_tif_with_rasterio(file_path, bands=[4, 3, 2]):
+    """
+    Load .tif file using rasterio and select specific bands
+    Args:
+        file_path: Path to the .tif file
+        bands: List of band indices to select (1-indexed)
+    Returns:
+        PIL Image with selected bands
+    """
+    with rasterio.open(file_path) as src:
+        # Read selected bands (rasterio uses 1-indexed band numbers)
+        data = src.read(bands)
+        
+        # Handle single band vs multi-band differently
+        if len(bands) == 1:
+            # For single band (like masks), keep as 2D array
+            data = data[0]  # Remove the channel dimension: (1, H, W) -> (H, W)
+        else:
+            # For multi-band images, transpose to get (height, width, channels) format
+            data = np.transpose(data, (1, 2, 0))
+        
+        # Normalize to 0-255 range for PIL
+        # Assuming 16-bit data, adjust if different
+        if data.dtype == np.uint16:
+            data = (data / 65535.0 * 255).astype(np.uint8)
+        elif data.dtype == np.uint8:
+            data = data.astype(np.uint8)
+        else:
+            # For other data types, normalize to 0-255
+            data_min = np.min(data)
+            data_max = np.max(data)
+            if data_max > data_min:
+                data = ((data - data_min) / (data_max - data_min) * 255).astype(np.uint8)
+            else:
+                data = np.zeros_like(data, dtype=np.uint8)
+        
+        return Image.fromarray(data)
+
+
 # dataset for training
 class ChangeDataset(data.Dataset):
     def __init__(self, root, trainsize, mosaic_ratio=0.75):
@@ -103,12 +144,11 @@ class ChangeDataset(data.Dataset):
         # get filenames
         self.image_root_A =  root + 'A/'
         self.image_root_B =  root + 'B/'
-        self.gt_root = root + 'label/'
+        self.gt_root = root + 'mask/'  # Changed from 'label/' to 'mask/' based on your folder structure
         self.mosaic_ratio = mosaic_ratio
-        self.images_A = [self.image_root_A + f for f in os.listdir(self.image_root_A) if f.endswith('.jpg') or f.endswith('.png')]
-        self.images_B = [self.image_root_B + f for f in os.listdir(self.image_root_B) if f.endswith('.jpg') or f.endswith('.png')]
-        self.gts = [self.gt_root + f for f in os.listdir(self.gt_root) if f.endswith('.jpg')
-                    or f.endswith('.png')]
+        self.images_A = [self.image_root_A + f for f in os.listdir(self.image_root_A) if f.endswith('.tif')]
+        self.images_B = [self.image_root_B + f for f in os.listdir(self.image_root_B) if f.endswith('.tif')]
+        self.gts = [self.gt_root + f for f in os.listdir(self.gt_root) if f.endswith('.tif')]
         self.images_A = sorted(self.images_A)
         self.images_B = sorted(self.images_B)
         self.gts = sorted(self.gts)
@@ -149,9 +189,9 @@ class ChangeDataset(data.Dataset):
 
 
     def load_img_and_mask(self, index):
-        A = Image.open(self.images_A[index]).convert('RGB')
-        B = Image.open(self.images_B[index]).convert('RGB')
-        mask = Image.open(self.gts[index]).convert('L')
+        A = load_tif_with_rasterio(self.images_A[index], bands=[4, 3, 2])
+        B = load_tif_with_rasterio(self.images_B[index], bands=[4, 3, 2])
+        mask = load_tif_with_rasterio(self.gts[index], bands=[1])  # Single band for mask
         return A, B, mask
 
     def load_mosaic_img_and_mask(self, index):
@@ -216,14 +256,20 @@ class ChangeDataset(data.Dataset):
         gts = []
         edges = []
         for img_A_path, img_B_path, gt_path in zip(self.images_A, self.images_B, self.gts):
-            img_A = Image.open(img_A_path)
-            img_B = Image.open(img_B_path)
-            gt = Image.open(gt_path)
-            if img_A.size == img_B.size:
-                if img_A.size == gt.size:
-                    images_A.append(img_A_path)
-                    images_B.append(img_B_path)
-                    gts.append(gt_path)
+            try:
+                # Check if files can be opened with rasterio
+                with rasterio.open(img_A_path) as src_A:
+                    with rasterio.open(img_B_path) as src_B:
+                        with rasterio.open(gt_path) as src_gt:
+                            # Check if all files have the same dimensions
+                            if (src_A.width == src_B.width == src_gt.width and 
+                                src_A.height == src_B.height == src_gt.height):
+                                images_A.append(img_A_path)
+                                images_B.append(img_B_path)
+                                gts.append(gt_path)
+            except Exception as e:
+                print(f"Error processing files: {e}")
+                continue
 
         self.images_A = images_A
         self.images_B = images_B
@@ -243,11 +289,10 @@ class Test_ChangeDataset(data.Dataset):
         # get filenames
         image_root_A =  root + 'A/'
         image_root_B =  root + 'B/'
-        gt_root = root + 'label/'
-        self.images_A = [image_root_A + f for f in os.listdir(image_root_A) if f.endswith('.jpg') or f.endswith('.png')]
-        self.images_B = [image_root_B + f for f in os.listdir(image_root_B) if f.endswith('.jpg') or f.endswith('.png')]
-        self.gts = [gt_root + f for f in os.listdir(gt_root) if f.endswith('.jpg')
-                    or f.endswith('.png')]
+        gt_root = root + 'mask/'  # Changed from 'label/' to 'mask/'
+        self.images_A = [image_root_A + f for f in os.listdir(image_root_A) if f.endswith('.tif')]
+        self.images_B = [image_root_B + f for f in os.listdir(image_root_B) if f.endswith('.tif')]
+        self.gts = [gt_root + f for f in os.listdir(gt_root) if f.endswith('.tif')]
         self.images_A = sorted(self.images_A)
         self.images_B = sorted(self.images_B)
         self.gts = sorted(self.gts)
@@ -265,15 +310,15 @@ class Test_ChangeDataset(data.Dataset):
 
     def __getitem__(self, index):
         # read imgs/gts/grads/depths
-        image_A = self.rgb_loader(self.images_A[index])
-        image_B = self.rgb_loader(self.images_B[index])
-        gt = self.binary_loader(self.gts[index])
+        image_A = load_tif_with_rasterio(self.images_A[index], bands=[4, 3, 2])
+        image_B = load_tif_with_rasterio(self.images_B[index], bands=[4, 3, 2])
+        gt = load_tif_with_rasterio(self.gts[index], bands=[1])  # Single band for mask
         # data augumentation
 
         image_A = self.img_transform(image_A)
         image_B = self.img_transform(image_B)
         gt = self.gt_transform(gt)
-        file_name = self.images_A[index].split('/')[-1][:-len(".png")]
+        file_name = self.images_A[index].split('/')[-1][:-len(".tif")]
 
         return image_A, image_B, gt, file_name
 
@@ -284,28 +329,24 @@ class Test_ChangeDataset(data.Dataset):
         images_B = []
         gts = []
         for img_A_path, img_B_path, gt_path in zip(self.images_A, self.images_B, self.gts):
-            img_A = Image.open(img_A_path)
-            img_B = Image.open(img_B_path)
-            gt = Image.open(gt_path)
-            if img_A.size == img_B.size:
-                if img_A.size == gt.size:
-                    images_A.append(img_A_path)
-                    images_B.append(img_B_path)
-                    gts.append(gt_path)
+            try:
+                # Check if files can be opened with rasterio
+                with rasterio.open(img_A_path) as src_A:
+                    with rasterio.open(img_B_path) as src_B:
+                        with rasterio.open(gt_path) as src_gt:
+                            # Check if all files have the same dimensions
+                            if (src_A.width == src_B.width == src_gt.width and 
+                                src_A.height == src_B.height == src_gt.height):
+                                images_A.append(img_A_path)
+                                images_B.append(img_B_path)
+                                gts.append(gt_path)
+            except Exception as e:
+                print(f"Error processing files: {e}")
+                continue
 
         self.images_A = images_A
         self.images_B = images_B
         self.gts = gts
-
-    def rgb_loader(self, path):
-        with open(path, 'rb') as f:
-            img = Image.open(f)
-            return img.convert('RGB')
-
-    def binary_loader(self, path):
-        with open(path, 'rb') as f:
-            img = Image.open(f)
-            return img.convert('L')
 
     def __len__(self):
         return self.size
@@ -341,16 +382,15 @@ class SemiChangeDataset(data.Dataset):
         # get filenames
         self.image_root_A =  root + 'A/'
         self.image_root_B =  root + 'B/'
-        self.gt_root = root + 'label/'
+        self.gt_root = root + 'mask/'  # Changed from 'label/' to 'mask/'
 
         assert train_ratio<=1 and train_ratio>=0
         self.train_ratio = train_ratio
 
         self.mosaic_ratio = mosaic_ratio
-        self.images_A = [self.image_root_A + f for f in os.listdir(self.image_root_A) if f.endswith('.jpg') or f.endswith('.png')]
-        self.images_B = [self.image_root_B + f for f in os.listdir(self.image_root_B) if f.endswith('.jpg') or f.endswith('.png')]
-        self.gts = [self.gt_root + f for f in os.listdir(self.gt_root) if f.endswith('.jpg')
-                    or f.endswith('.png')]
+        self.images_A = [self.image_root_A + f for f in os.listdir(self.image_root_A) if f.endswith('.tif')]
+        self.images_B = [self.image_root_B + f for f in os.listdir(self.image_root_B) if f.endswith('.tif')]
+        self.gts = [self.gt_root + f for f in os.listdir(self.gt_root) if f.endswith('.tif')]
 
         self.images_A = sorted(self.images_A)
         self.images_B = sorted(self.images_B)
@@ -404,9 +444,9 @@ class SemiChangeDataset(data.Dataset):
 
 
     def load_img_and_mask(self, index):
-        A = Image.open(self.images_A[index]).convert('RGB')
-        B = Image.open(self.images_B[index]).convert('RGB')
-        mask = Image.open(self.gts[index]).convert('L')
+        A = load_tif_with_rasterio(self.images_A[index], bands=[4, 3, 2])
+        B = load_tif_with_rasterio(self.images_B[index], bands=[4, 3, 2])
+        mask = load_tif_with_rasterio(self.gts[index], bands=[1])  # Single band for mask
         return A, B, mask
 
     def load_mosaic_img_and_mask(self, index):
@@ -471,14 +511,20 @@ class SemiChangeDataset(data.Dataset):
         gts = []
         edges = []
         for img_A_path, img_B_path, gt_path in zip(self.images_A, self.images_B, self.gts):
-            img_A = Image.open(img_A_path)
-            img_B = Image.open(img_B_path)
-            gt = Image.open(gt_path)
-            if img_A.size == img_B.size:
-                if img_A.size == gt.size:
-                    images_A.append(img_A_path)
-                    images_B.append(img_B_path)
-                    gts.append(gt_path)
+            try:
+                # Check if files can be opened with rasterio
+                with rasterio.open(img_A_path) as src_A:
+                    with rasterio.open(img_B_path) as src_B:
+                        with rasterio.open(gt_path) as src_gt:
+                            # Check if all files have the same dimensions
+                            if (src_A.width == src_B.width == src_gt.width and 
+                                src_A.height == src_B.height == src_gt.height):
+                                images_A.append(img_A_path)
+                                images_B.append(img_B_path)
+                                gts.append(gt_path)
+            except Exception as e:
+                print(f"Error processing files: {e}")
+                continue
 
         self.images_A = images_A
         self.images_B = images_B

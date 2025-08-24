@@ -25,7 +25,7 @@ def seed_everything(seed):
     torch.backends.cudnn.benchmark = True
 
 
-def update_ema_variables(model, ema_model, alpha):  #alpha是啥意思
+def update_ema_variables(model, ema_model, alpha):
     model_state = model.state_dict()
     model_ema_state = ema_model.state_dict()
     new_dict = {}
@@ -47,7 +47,7 @@ def train1(train_loader, val_loader, Eva_train,Eva_train2, Eva_val,Eva_val2,
     st = time.time()
     loss_semi=torch.zeros(1)
     with tqdm(total=len(train_loader), desc=f'Eps {epoch}/{num_epoches}', unit='img') as pbar:
-        for i, (A, B, mask,with_label) in enumerate(train_loader): #with_label是？
+        for i, (A, B, mask,with_label) in enumerate(train_loader):
             A = A.cuda()
             B = B.cuda()
             Y = mask.cuda()
@@ -56,7 +56,7 @@ def train1(train_loader, val_loader, Eva_train,Eva_train2, Eva_val,Eva_val2,
             optimizer.zero_grad()
             if use_ema is False:
                 """
-                如果不用ema半监督，则只对有标签的patch进行学习（with_label=True）
+                If not using EMA semi-supervised learning, only learn from labeled patches (with_label=True)
                 """
                 if with_label.any():
                     preds = net(A[with_label], B[with_label])
@@ -64,12 +64,12 @@ def train1(train_loader, val_loader, Eva_train,Eva_train2, Eva_val,Eva_val2,
                     Y=Y[with_label]
                 else:
                     """
-                    整个batch都是没有label的，只能跳过（with_label.any()=False）
+                    If entire batch has no labels, skip (with_label.any()=False)
                     """
                     continue
             else:
                 """
-                    ema半监督，第一部分的loss是有标签的patch和预测值进行反向传播（同上）
+                EMA semi-supervised learning, first part of loss is supervised loss from labeled patches
                 """
                 preds = net(A,B)
                 if with_label.any():
@@ -80,29 +80,29 @@ def train1(train_loader, val_loader, Eva_train,Eva_train2, Eva_val,Eva_val2,
 
             if use_ema is True:
                 """
-                    ema半监督，第二部分的loss是无标签的patch，用teacher的预测结果对student的预测值进行反向传播
+                EMA semi-supervised learning, second part of loss is unsupervised loss from unlabeled patches
                 """
                 with torch.no_grad():
                     z1 = A[~with_label]
                     z2 = B[~with_label]
-                    pseudo_attn,pseudo_preds =  ema_net(z1, z2) #？分别是两个输出？attention_map是中间层知识,prediction是预测结果
+                    pseudo_attn,pseudo_preds =  ema_net(z1, z2)
 
-                    # pseudo_attn,pseudo_preds =  ema_net(A[~with_label], B[~with_label]) #？分别是两个输出？attention_map是中间层知识,prediction是预测结果
+                    # pseudo_attn,pseudo_preds =  ema_net(A[~with_label], B[~with_label])
                     pseudo_attn,pseudo_preds =  torch.sigmoid(pseudo_attn).detach(),torch.sigmoid(pseudo_preds).detach()
-                loss_semi = semicriterion(preds[0][~with_label], pseudo_attn) + semicriterion(preds[1][~with_label], pseudo_preds)  #测试这里的效果，如果有用则方便讲故事
-                # loss_semi =semicriterion(preds[1][~with_label],pseudo_preds) #test!!!!!!!!! loss_semi2
-                loss=loss+0.2*loss_semi  #全监督损失+半监督损失，半监督系数默认为0.2，测试0.3，0.4，0.5！！
-                Eva_train2.add_batch(mask[~with_label].cpu().numpy().astype(int), (preds[1][~with_label]>0).cpu().numpy().astype(int)) #~相反
+                loss_semi = semicriterion(preds[0][~with_label], pseudo_attn) + semicriterion(preds[1][~with_label], pseudo_preds)
+                # loss_semi =semicriterion(preds[1][~with_label],pseudo_preds)
+                loss=loss+0.2*loss_semi
+                Eva_train2.add_batch(mask[~with_label].cpu().numpy().astype(int), (preds[1][~with_label]>0).cpu().numpy().astype(int))
             # ---- loss function ----
 
             loss.backward()
             optimizer.step()
 
             """
-                ema更新teacher网络参数，teacher新参数=0.99*teacher旧参数+（1-0.99）*student参数
+                Update EMA teacher network parameters
             """
             with torch.no_grad():
-                update_ema_variables(net, ema_net, alpha=0.99)  #0.9，0.995，0.999
+                update_ema_variables(net, ema_net, alpha=0.99)
 
             # scheduler.step()
             epoch_loss += loss.item()
@@ -114,7 +114,7 @@ def train1(train_loader, val_loader, Eva_train,Eva_train2, Eva_val,Eva_val2,
             target = Y.cpu().numpy().astype(int)
 
             Eva_train.add_batch(target, pred)
-            pbar.set_postfix(**{'LAll': loss.item(),'LSemi': loss_semi.item()}) #？
+            pbar.set_postfix(**{'LAll': loss.item(),'LSemi': loss_semi.item()})
             pbar.update(1)
             length += 1
 
@@ -142,7 +142,7 @@ def train1(train_loader, val_loader, Eva_train,Eva_train2, Eva_val,Eva_val2,
             'Epoch [%d/%d],\n[Training]IoU: %.4f, Precision:%.4f, Recall: %.4f, F1: %.4f' % (
                 epoch, num_epoches, \
                 IoU, Pre, Recall, F1))
-    print("Strat validing!")
+    print("Start validating!")
 
 
     net.train(False)
@@ -166,7 +166,7 @@ def train1(train_loader, val_loader, Eva_train,Eva_train2, Eva_val,Eva_val2,
             Eva_val2.add_batch(target, (preds_ema>0).cpu().numpy().astype(int))
             length += 1
             """
-                这里到底是存net的参数还是ema_net的参数，都可以，看哪个精度高
+                Save either net or ema_net parameters, depending on which has higher accuracy
             """
     IoU = Eva_val.Intersection_over_Union()
     Pre = Eva_val.Precision()
@@ -176,22 +176,22 @@ def train1(train_loader, val_loader, Eva_train,Eva_train2, Eva_val,Eva_val2,
     print('[Validation] IoU: %.4f, Precision:%.4f, Recall: %.4f, F1: %.4f' % (IoU[1], Pre[1], Recall[1], F1[1]))
 
     print('[Ema Validation] IoU: %.4f, Precision:%.4f, Recall: %.4f, F1: %.4f' % (Eva_val2.Intersection_over_Union()[1], Eva_val2.Precision()[1], Eva_val2.Recall()[1], Eva_val2.F1()[1]))
-    new_iou = IoU[1]    #存教师模型？
+    new_iou = IoU[1]
     if new_iou >= best_iou:
         best_iou = new_iou
         best_epoch = epoch
         print('Best Model Iou :%.4f; F1 :%.4f; Best epoch : %d' % (IoU[1], F1[1], best_epoch))
         # torch.save(net.state_dict(), save_path + '_best_student_iou.pth')
-        # torch.save(ema_net.state_dict(), save_path + '_best_teacher_iou.pth') #当student的精度最高的时候，同时存teacher的精度，然后用teacher的精度进行测试
+        # torch.save(ema_net.state_dict(), save_path + '_best_teacher_iou.pth')
         print('best_epoch', epoch)
         student_dir = save_path + '_train1_' + '_best_student_iou.pth'
-        # 1. 先建立一个字典，保存三个参数：
+        # 1. Create a dictionary to save three parameters:
         student_state = {'best_student_net ': net.state_dict(),
                  'optimizer ': optimizer.state_dict(),
                  ' epoch': epoch}
-        # 2.调用torch.save():其中dir表示保存文件的绝对路径+保存文件名，如'/home/qinying/Desktop/modelpara.pth'
+        # 2. Call torch.save(): dir represents the absolute path + filename
         torch.save(student_state, student_dir)
-        torch.save(ema_net.state_dict(), save_path + '_train1_' + '_best_teacher_iou.pth') #当student的精度最高的时候，同时存teacher的精度，然后用teacher的精度进行测试
+        torch.save(ema_net.state_dict(), save_path + '_train1_' + '_best_teacher_iou.pth')
     print('Best Model Iou :%.4f; F1 :%.4f' % (best_iou, F1[1]))
     vis.close_summary()
 
@@ -202,24 +202,24 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epoch', type=int, default=100, help='epoch number') #修改这里！！！
+    parser.add_argument('--epoch', type=int, default=100, help='epoch number')
     parser.add_argument('--lr', type=float, default=5e-4, help='learning rate')
-    parser.add_argument('--batchsize', type=int, default=16, help='training batch size') #修改这里！！！
+    parser.add_argument('--batchsize', type=int, default=16, help='training batch size')
     parser.add_argument('--trainsize', type=int, default=256, help='training dataset size')
-    parser.add_argument('--train_ratio', type=float, default=0.05, help='Proportion of the labeled images')#修改这里！！！
+    parser.add_argument('--train_ratio', type=float, default=0.05, help='Proportion of the labeled images')
     parser.add_argument('--clip', type=float, default=0.5, help='gradient clipping margin')
     parser.add_argument('--decay_rate', type=float, default=0.1, help='decay rate of learning rate')
     parser.add_argument('--decay_epoch', type=int, default=50, help='every n epochs decay learning rate')
-    parser.add_argument('--gpu_id', type=str, default='0,1', help='train use gpu')  #修改这里！！！
-    parser.add_argument('--data_name', type=str, default='WHU', #修改这里！！！
+    parser.add_argument('--gpu_id', type=str, default='0,1', help='train use gpu')
+    parser.add_argument('--data_name', type=str, default='WHU',
                         help='the test rgb images root')
     parser.add_argument('--model_name', type=str, default='SemiModel_noema04',
                         help='the test rgb images root')
-    parser.add_argument('--save_path', type=str, default='./output/C2F-SemiCD/WHU-5/')  # 半监督的模型保存路径！！
-    # parser.add_argument('--save_path', type=str, default='./output/C2FNet/WHU/')  # 全监督的模型保存路径！！
+    parser.add_argument('--save_path', type=str, default='./output/C2F-SemiCD/WHU-5/')
+    # parser.add_argument('--save_path', type=str, default='./output/C2FNet/WHU/')
 
     opt = parser.parse_args()
-    print('labeled ration=0.05,Ablation现在半监督损失函数系数为:0.2!')
+    
 
     # set the device for training
     if opt.gpu_id == '0':
@@ -240,10 +240,9 @@ if __name__ == '__main__':
         opt.train_root = '/data/chengxi.han/data/LEVIR CD Dataset256/train/'
         opt.val_root = '/data/chengxi.han/data/LEVIR CD Dataset256/val/'
     elif opt.data_name == 'WHU':
-        opt.train_root = '/data/chengxi.han/data/Building change detection dataset256/train/'
-        opt.val_root = '/data/chengxi.han/data/Building change detection dataset256/val/'
-        # opt.train_root = '/data/chengxi.han/data/WHU-CD-256-Semi/train/'
-        # opt.val_root = '/data/chengxi.han/data/WHU-CD-256-Semi/val/'
+        # Change these paths to use your local dataset
+        opt.train_root = './labelled/train/'
+        opt.val_root = './labelled/val/'
     elif opt.data_name == 'CDD':
         opt.train_root = '/data/chengxi.han/data/CDD_ChangeDetectionDataset/Real/subset/train/'
         opt.val_root = '/data/chengxi.han/data/CDD_ChangeDetectionDataset/Real/subset/val/'
@@ -262,6 +261,9 @@ if __name__ == '__main__':
     elif opt.data_name == 'LEVIRsup-WHUunsup':
         opt.train_root = '/data/chengxi.han/data/WHU-LEVIR-CD-256-Semi/train/'
         opt.val_root = '/data/chengxi.han/data/WHU-LEVIR-CD-256-Semi/val/'
+    elif opt.data_name == 'LABELLED':
+        opt.train_root = './labelled/train/'
+        opt.val_root = './labelled/val/'
 
     train_loader = data_loader.get_semiloader(opt.train_root, opt.batchsize, opt.trainsize,opt.train_ratio, num_workers=8, shuffle=True, pin_memory=False)
     val_loader = data_loader.get_test_loader(opt.val_root, opt.batchsize, opt.trainsize, num_workers=6, shuffle=False, pin_memory=False)
@@ -298,21 +300,21 @@ if __name__ == '__main__':
 
     print("Start train...")
     # args = parser.parse_args()
-    # print('现在的数据是：',args.data_name)
+    # print('Current data:',args.data_name)
 
 
     for epoch in range(1, opt.epoch):
         for param_group in optimizer.param_groups:
             print(param_group['lr'])
 
-        # 可以先全用有标签的训练几个epoch，再进行半监督训练 !!!!
-        if epoch<5: #默认的为5，测试10，15，20
+        # Can first train with only labeled data for several epochs, then switch to semi-supervised training
+        if epoch<5:
             use_ema=False
-            # print('labeled ration=0.05,Ablation现在监督训练的次数为:20!')
+            # print('labeled ratio=0.05, Ablation supervised training epochs: 20!')
         else:
             use_ema=True
 
-        # 全程ema=False，即一直只用有标签的进行训练，不进行半监督学习
+        # Set use_ema=False to train only with labeled data, no semi-supervised learning
         
         # use_ema=False
 
@@ -324,9 +326,7 @@ if __name__ == '__main__':
               ema_model, criterion,semicriterion, optimizer,use_ema, opt.epoch)
 
         lr_scheduler.step()
-        # print('现在的数据是：', args.data_name)
+        # print('Current data:', args.data_name)
 
 
 end=time.time()
-print('程序训练train的时间为:',end-start)
-
